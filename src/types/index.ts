@@ -1,3 +1,10 @@
+export type {
+  JwtPayload,
+  AuthenticatedRequest,
+  DiscordTokenResponse,
+  DiscordUser,
+} from './auth.js';
+
 export interface ISocialLink {
   platform: string;
   url: string;
