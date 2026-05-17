@@ -1,7 +1,30 @@
+# ── Runtime ──
 .env
-node_modules
-dist
-build
-logs
+.env.local
+.env.production
+
+# ── Build output ──
+dist/
+build/
+
+# ── Dependencies ──
+node_modules/
+
+# ── Logs ──
+logs/
 *.log
+npm-debug.log*
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Temp ──
 *.tmp
+*.temp
