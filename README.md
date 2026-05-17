@@ -730,7 +730,6 @@ The API is deployed on a homeserver using **Cloudflare Tunnel** — no open port
 Browser ──HTTPS──▶ Cloudflare Edge ──tunnel──▶ cloudflared ──HTTP──▶ localhost:5000 (Express)
 ```
 
-See [docs/DeploymentGuide.md](docs/DeploymentGuide.md) for the full step-by-step guide.
 
 ### Production Env Changes
 
