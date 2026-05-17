@@ -16,7 +16,7 @@ pipeline {
 
         stage('Restart') {
             steps {
-                sh 'pm2 restart cloudy-api'
+                sh 'sudo -u aza PM2_HOME=/home/aza/.pm2 pm2 restart cloudy-api'
             }
         }
     }
