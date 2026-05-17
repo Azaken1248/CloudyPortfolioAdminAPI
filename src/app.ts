@@ -16,6 +16,8 @@ import { NotFoundError } from './utils/errors.js';
 export function createApp(): Application {
   const app = express();
 
+  app.set('trust proxy', 1);
+
   app.use(cors({
     origin: env.CLIENT_URL,
     credentials: true,
