@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { authRouter } from './routes/auth.js';
 import { NotFoundError } from './utils/errors.js';
 
 export function createApp(): Application {
@@ -29,6 +30,8 @@ export function createApp(): Application {
       },
     });
   });
+
+  app.use('/api/auth', authRouter);
 
   app.use((req, _res, next) => {
     next(new NotFoundError(`Route ${req.method} ${req.originalUrl}`));
