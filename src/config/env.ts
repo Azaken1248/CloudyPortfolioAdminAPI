@@ -57,6 +57,14 @@ export const env = {
     return optionalEnv('CLIENT_URL', 'http://localhost:5173');
   },
 
+  get ALLOWED_ORIGINS(): string[] {
+    const origins = process.env.ALLOWED_ORIGINS;
+    if (origins) {
+      return origins.split(',').map((o) => o.trim()).filter(Boolean);
+    }
+    return [this.CLIENT_URL];
+  },
+
   get IS_PRODUCTION(): boolean {
     return this.NODE_ENV === 'production';
   },
