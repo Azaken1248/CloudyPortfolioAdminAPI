@@ -57,12 +57,15 @@ graph TB
     subgraph Homeserver
         E[Express 5 API<br/>Port 5000]
         F[PM2 Process Manager]
+        J[Message Relay API<br/>Port 5001]
     end
 
     subgraph External Services
         G[(MongoDB Atlas)]
         H[Cloudinary CDN]
         I[Discord OAuth2]
+        K[Discord API<br/>Bot DM]
+        L[SMTP Mail Server<br/>Gmail SMTP]
     end
 
     A -->|HTTPS| C
@@ -73,6 +76,10 @@ graph TB
     E -->|Mongoose| G
     E -->|Sharp + Stream| H
     E -->|OAuth2 REST| I
+    
+    B -->|POST /api/messages| J
+    J -->|Discord Gateway/API| K
+    J -->|Nodemailer SMTP| L
 ```
 
 ### Request Flow
