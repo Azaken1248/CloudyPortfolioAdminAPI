@@ -69,14 +69,21 @@ pipeline {
                 // /api/health now reports 503 when the database is unreachable,
                 // so this catches a deploy that started but cannot serve.
                 sh '''
+                  # Read the port the service actually listens on rather than
+                  # assuming the example default: the deployed instance is
+                  # fronted by a Cloudflare Tunnel pointing at its own port.
+                  APP_PORT="$(grep -E "^PORT=" .env 2>/dev/null | head -1 | cut -d= -f2 | tr -d "\r\n \"'" )"
+                  APP_PORT="${APP_PORT:-5000}"
+                  echo "checking health on port $APP_PORT"
+
                   for i in $(seq 1 10); do
-                    if curl -fsS --max-time 5 http://127.0.0.1:5000/api/health > /dev/null; then
+                    if curl -fsS --max-time 5 "http://127.0.0.1:$APP_PORT/api/health" > /dev/null; then
                       echo "health check passed"
                       exit 0
                     fi
                     sleep 3
                   done
-                  echo "service did not report healthy after restart"
+                  echo "service did not report healthy on port $APP_PORT after restart"
                   exit 1
                 '''
             }
