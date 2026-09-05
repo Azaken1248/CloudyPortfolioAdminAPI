@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
+import { describeTarget, assertSafeToSeed } from './utils/seedGuard.js';
 import { GlobalConfig, Artwork, CommissionTier, FaqItem, TosSection } from './models/index.js';
 
 const defaultConfig = {
@@ -199,6 +200,12 @@ const defaultTosSections = [
 ];
 
 async function seed(): Promise<void> {
+  const target = describeTarget(env.MONGO_URI);
+  assertSafeToSeed(target);
+
+  logger.warn(
+    `[SEED] Target ${target.host}/${target.database} — every existing document will be deleted.`,
+  );
   logger.info('[SEED] Connecting to MongoDB...');
   await mongoose.connect(env.MONGO_URI);
   logger.info('[SEED] Connected.');

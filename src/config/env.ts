@@ -70,4 +70,45 @@ export const env = {
   },
 };
 
+/**
+ * Touch every required variable so a misconfigured deploy fails at startup
+ * rather than at the first request that happens to need one.
+ *
+ * The getters above are lazy, which meant MONGO_URI and the Cloudinary keys
+ * failed early only by accident (connectDB, and cloudinary.config at import),
+ * while JWT_SECRET and the Discord credentials were not read until someone
+ * tried to log in — long after the process reported itself healthy.
+ *
+ * Reports every missing variable at once instead of one per restart.
+ */
+export function validateEnv(): void {
+  const required: (keyof typeof env)[] = [
+    'MONGO_URI',
+    'JWT_SECRET',
+    'DISCORD_CLIENT_ID',
+    'DISCORD_CLIENT_SECRET',
+    'DISCORD_REDIRECT_URI',
+    'ALLOWED_DISCORD_IDS',
+    'CLOUDINARY_CLOUD_NAME',
+    'CLOUDINARY_API_KEY',
+    'CLOUDINARY_API_SECRET',
+  ];
+
+  const missing: string[] = [];
+
+  for (const key of required) {
+    try {
+      void env[key];
+    } catch {
+      missing.push(key);
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `[ENV] Missing required environment variable${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`,
+    );
+  }
+}
+
 export type Env = typeof env;

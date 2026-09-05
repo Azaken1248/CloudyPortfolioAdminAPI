@@ -1,9 +1,13 @@
-import { env } from './config/env.js';
+import { env, validateEnv } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { createApp } from './app.js';
 import { logger } from './utils/logger.js';
 
 async function bootstrap(): Promise<void> {
+  // Fail fast and completely: every missing variable is reported at once,
+  // before a socket is opened or a database connection attempted.
+  validateEnv();
+
   await connectDB();
 
   const app = createApp();

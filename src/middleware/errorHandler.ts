@@ -41,6 +41,35 @@ export function errorHandler(
     return;
   }
 
+  /**
+   * body-parser raises these before any route runs, so they arrive here with a
+   * meaningful `status` but no AppError wrapper. Without this they fell through
+   * to the generic 500 branch, turning "your request was too large" and
+   * "your JSON is malformed" into an opaque server error.
+   */
+  const parseError = err as unknown as Record<string, unknown>;
+  if (parseError.type === 'entity.too.large') {
+    res.status(413).json({
+      success: false,
+      error: {
+        code: 'PAYLOAD_TOO_LARGE',
+        message: 'Request body is too large.',
+      },
+    });
+    return;
+  }
+
+  if (parseError.type === 'entity.parse.failed') {
+    res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Request body is not valid JSON.',
+      },
+    });
+    return;
+  }
+
   if ('code' in err && (err as Record<string, unknown>).code === 11000) {
     const response: ErrorResponse = {
       success: false,

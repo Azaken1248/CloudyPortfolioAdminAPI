@@ -642,6 +642,62 @@ erDiagram
 
 ---
 
+
+### Additional environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ALLOWED_ORIGINS` | falls back to `CLIENT_URL` | Comma-separated CORS origins. Also pinned in `tests/setup.ts`, without which the suite inherits it from your real `.env`. |
+| `TRUSTED_PROXIES` | `loopback` | Peers allowed to assert a client address for rate limiting. |
+
+All required variables are validated at startup by `validateEnv()`, which reports
+every missing name at once rather than failing on the first request that needs one.
+
+### Seeding is destructive
+
+`npm run seed` deletes **every document in every collection** before inserting
+defaults. It refuses to run when `NODE_ENV=production` (no override), and refuses
+a non-local database unless forced:
+
+```bash
+npm run seed                  # local database only
+npm run seed -- --force       # required for any remote target
+```
+
+### Rate limits and security headers
+
+`helmet` supplies CSP, HSTS, `nosniff` and frame denial. Three limit tiers, keyed
+on a resolved client address rather than the raw `X-Forwarded-For` header:
+
+| Scope | Limit |
+|---|---|
+| `/api/auth/discord` (OAuth) | 20 per 15 min |
+| `/api/upload` | 20 per min |
+| Other API routes | 120 per min |
+
+`/api/health` is exempt, and returns **503** with `status: degraded` when the
+database is unreachable — it pings rather than trusting `readyState` alone.
+
+`src/utils/clientIp.ts` is mirrored byte-for-byte in the Message Relay. Diff the
+two before changing either.
+
+### Local development
+
+`../../dev-env.sh` at the repository root runs MongoDB (via the `mongod` binary
+`mongodb-memory-server` already caches for the tests), this API and the message
+relay together on localhost — no MongoDB install or Docker required, and every
+outbound credential blanked:
+
+```bash
+./dev-env.sh start    # also: stop | status | seed | logs
+```
+
+### CI
+
+`Jenkinsfile` runs Install → Typecheck → Lint → Test → Audit → Build, then
+Deploy and a health smoke check **gated on `branch 'main'`**. Verification runs
+before Build so a broken change cannot reach the deploy stage.
+
 ## Testing
 
 ```bash

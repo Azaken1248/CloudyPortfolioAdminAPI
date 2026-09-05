@@ -9,6 +9,11 @@ process.env.CLOUDINARY_API_KEY = 'test-api-key';
 process.env.CLOUDINARY_API_SECRET = 'test-api-secret';
 process.env.NODE_ENV = 'test';
 process.env.CLIENT_URL = 'http://localhost:5173';
+// Must be set explicitly. env.ts calls `import 'dotenv/config'`, and dotenv only
+// fills variables that are absent — so any value left unset here is inherited
+// from the developer's real .env, making the suite pass or fail depending on
+// local configuration. This one governs the CORS test.
+process.env.ALLOWED_ORIGINS = 'http://localhost:5173';
 
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';

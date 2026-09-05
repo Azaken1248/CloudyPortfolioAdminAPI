@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TosSection } from '../../src/models/index.js';
+import { TosSection, type TosVariant } from '../../src/models/index.js';
 
 describe('TosSection Model', () => {
   const validTos = {
@@ -49,7 +49,9 @@ describe('TosSection Model', () => {
   });
 
   it('should fail with invalid variant', async () => {
-    const tos = { ...validTos, variant: 'invalid' as any };
+    // Deliberately outside the enum; cast through unknown rather than any so
+    // the escape hatch is narrow and lint-clean.
+    const tos = { ...validTos, variant: 'invalid' as unknown as TosVariant };
     await expect(TosSection.create(tos)).rejects.toThrow(/variant/i);
   });
 

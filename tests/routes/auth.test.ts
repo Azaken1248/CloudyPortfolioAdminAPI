@@ -13,6 +13,23 @@ function signTestToken(payload: JwtPayload, options?: jwt.SignOptions): string {
   return jwt.sign(payload, JWT_SECRET, options);
 }
 
+
+/**
+ * Complete the OAuth `state` handshake the way a browser would: fetch the
+ * authorize redirect, keep the cookie it sets, and echo the same value back on
+ * the callback. Tests exercise the real flow rather than bypassing the check.
+ */
+async function callbackWithState(code: string) {
+  const start = await request(app).get('/api/auth/discord');
+  const setCookie = start.headers['set-cookie'] as unknown as string[] | undefined;
+  const stateCookie = (setCookie ?? []).find((c) => c.startsWith('oauth_state='));
+  const state = stateCookie?.split(';')[0]?.split('=')[1] ?? '';
+
+  return request(app)
+    .get(`/api/auth/discord/callback?code=${code}&state=${state}`)
+    .set('Cookie', `oauth_state=${state}`);
+}
+
 const whitelistedPayload: JwtPayload = {
   discordId: '123456789',
   username: 'cloudyartist',
@@ -84,12 +101,41 @@ describe('Auth Routes', () => {
       expect(res.headers.location).toBe(`${CLIENT_URL}/login?error=missing_code`);
     });
 
+
+    it('rejects a callback with no state parameter', async () => {
+      const res = await request(app).get('/api/auth/discord/callback?code=valid_code');
+
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe(`${CLIENT_URL}/login?error=invalid_state`);
+    });
+
+    it('rejects a callback whose state does not match the cookie', async () => {
+      const res = await request(app)
+        .get('/api/auth/discord/callback?code=valid_code&state=bbbbbbbbbbbbbbbb')
+        .set('Cookie', 'oauth_state=aaaaaaaaaaaaaaaa');
+
+      expect(res.status).toBe(302);
+      expect(res.headers.location).toBe(`${CLIENT_URL}/login?error=invalid_state`);
+    });
+
+    it('issues a fresh, sufficiently random state on each authorize request', async () => {
+      const a = await request(app).get('/api/auth/discord');
+      const b = await request(app).get('/api/auth/discord');
+
+      const pick = (r: typeof a) =>
+        ((r.headers['set-cookie'] as unknown as string[]) ?? [])
+          .find((c) => c.startsWith('oauth_state='))?.split(';')[0].split('=')[1] ?? '';
+
+      expect(pick(a)).not.toBe(pick(b));
+      expect(pick(a).length).toBeGreaterThanOrEqual(32);
+    });
+
     it('should redirect to login with error when Discord token exchange fails', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response('Unauthorized', { status: 401 }),
       );
 
-      const res = await request(app).get('/api/auth/discord/callback?code=invalid_code');
+      const res = await callbackWithState('invalid_code');
 
       expect(res.status).toBe(302);
       expect(res.headers.location).toBe(`${CLIENT_URL}/login?error=discord_error`);
@@ -110,7 +156,7 @@ describe('Auth Routes', () => {
           new Response('Unauthorized', { status: 401 }),
         );
 
-      const res = await request(app).get('/api/auth/discord/callback?code=valid_code');
+      const res = await callbackWithState('valid_code');
 
       expect(res.status).toBe(302);
       expect(res.headers.location).toBe(`${CLIENT_URL}/login?error=discord_error`);
@@ -119,7 +165,7 @@ describe('Auth Routes', () => {
     it('should redirect to login with unauthorized error for non-whitelisted user', async () => {
       mockDiscordSuccess('999999999', 'stranger', 'avatar_hash');
 
-      const res = await request(app).get('/api/auth/discord/callback?code=valid_code');
+      const res = await callbackWithState('valid_code');
 
       expect(res.status).toBe(302);
       expect(res.headers.location).toBe(`${CLIENT_URL}/login?error=unauthorized`);
@@ -128,7 +174,7 @@ describe('Auth Routes', () => {
     it('should set JWT cookie and redirect to admin for whitelisted user', async () => {
       mockDiscordSuccess('123456789', 'cloudyartist', 'avatar_hash_123');
 
-      const res = await request(app).get('/api/auth/discord/callback?code=valid_code');
+      const res = await callbackWithState('valid_code');
 
       expect(res.status).toBe(302);
       expect(res.headers.location).toBe(`${CLIENT_URL}/admin`);
@@ -147,7 +193,7 @@ describe('Auth Routes', () => {
     it('should issue a valid JWT containing correct payload for whitelisted user', async () => {
       mockDiscordSuccess('123456789', 'cloudyartist', 'avatar_hash_123');
 
-      const res = await request(app).get('/api/auth/discord/callback?code=valid_code');
+      const res = await callbackWithState('valid_code');
 
       const cookies = res.headers['set-cookie'] as unknown as string[];
       const tokenCookie = Array.isArray(cookies)
@@ -166,7 +212,7 @@ describe('Auth Routes', () => {
     it('should handle fetch throwing a network error gracefully', async () => {
       vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('Network error'));
 
-      const res = await request(app).get('/api/auth/discord/callback?code=valid_code');
+      const res = await callbackWithState('valid_code');
 
       expect(res.status).toBe(302);
       expect(res.headers.location).toBe(`${CLIENT_URL}/login?error=discord_error`);

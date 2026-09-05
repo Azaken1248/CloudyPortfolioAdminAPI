@@ -13,10 +13,28 @@ function timestamp(): string {
   return new Date().toISOString();
 }
 
+/**
+ * JSON.stringify serialises an Error to `{}` — its message and stack are
+ * non-enumerable — which silently discarded the useful half of every logged
+ * failure. Errors are formatted explicitly here.
+ */
+function formatArg(arg: unknown): string {
+  if (arg instanceof Error) {
+    return arg.stack ? `${arg.name}: ${arg.message}\n${arg.stack}` : `${arg.name}: ${arg.message}`;
+  }
+  if (typeof arg === 'string') return arg;
+  try {
+    return JSON.stringify(arg);
+  } catch {
+    return String(arg);
+  }
+}
+
 function formatMessage(level: LogLevel, message: string, ...args: unknown[]): string {
   const color = LEVEL_COLORS[level];
   const tag = level.toUpperCase().padEnd(5);
-  return `${color}[${timestamp()}] ${tag}${RESET} ${message} ${args.length ? JSON.stringify(args) : ''}`;
+  const detail = args.length ? ` ${args.map(formatArg).join(' ')}` : '';
+  return `${color}[${timestamp()}] ${tag}${RESET} ${message}${detail}`;
 }
 
 export const logger = {

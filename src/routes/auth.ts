@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -8,6 +9,48 @@ import type { JwtPayload, DiscordTokenResponse, DiscordUser, AuthenticatedReques
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 const DISCORD_AUTH_URL = 'https://discord.com/api/oauth2/authorize';
 const COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+const STATE_COOKIE = 'oauth_state';
+const STATE_MAX_AGE = 10 * 60 * 1000;
+
+/**
+ * OAuth2 `state`, per RFC 6749 §10.12.
+ *
+ * A random value is written to a short-lived httpOnly cookie and echoed through
+ * Discord, then compared on return. Without it the callback accepts any
+ * authorization code presented to it, so an attacker can complete a login the
+ * victim never started (login CSRF) — the whitelist limits who ends up
+ * authenticated, but not whose session is established.
+ */
+function issueState(res: Response): string {
+  const state = crypto.randomBytes(32).toString('base64url');
+
+  res.cookie(STATE_COOKIE, state, {
+    httpOnly: true,
+    secure: env.IS_PRODUCTION,
+    sameSite: 'lax',
+    maxAge: STATE_MAX_AGE,
+    path: '/api/auth',
+  });
+
+  return state;
+}
+
+function clearState(res: Response): void {
+  res.clearCookie(STATE_COOKIE, {
+    httpOnly: true,
+    secure: env.IS_PRODUCTION,
+    sameSite: 'lax',
+    path: '/api/auth',
+  });
+}
+
+/** Constant-time comparison so the check cannot be probed by timing. */
+function stateMatches(received: unknown, expected: unknown): boolean {
+  if (typeof received !== 'string' || typeof expected !== 'string') return false;
+  if (received.length !== expected.length || received.length === 0) return false;
+
+  return crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected));
+}
 
 const router = Router();
 
@@ -17,16 +60,27 @@ router.get('/discord', (_req: Request, res: Response) => {
     redirect_uri: env.DISCORD_REDIRECT_URI,
     response_type: 'code',
     scope: 'identify',
+    state: issueState(res),
   });
 
   res.redirect(`${DISCORD_AUTH_URL}?${params.toString()}`);
 });
 
 router.get('/discord/callback', async (req: Request, res: Response) => {
-  const { code } = req.query;
+  const { code, state } = req.query;
+  const expectedState = (req.cookies as Record<string, string> | undefined)?.[STATE_COOKIE];
+
+  // Consume the state cookie on every outcome so it cannot be replayed.
+  clearState(res);
 
   if (!code || typeof code !== 'string') {
     res.redirect(`${env.CLIENT_URL}/login?error=missing_code`);
+    return;
+  }
+
+  if (!stateMatches(state, expectedState)) {
+    logger.warn('[AUTH] OAuth callback rejected: state mismatch or missing');
+    res.redirect(`${env.CLIENT_URL}/login?error=invalid_state`);
     return;
   }
 

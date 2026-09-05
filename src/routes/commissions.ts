@@ -1,7 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { CommissionTier } from '../models/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { NotFoundError, ValidationError } from '../utils/errors.js';
+import { NotFoundError } from '../utils/errors.js';
+import { parseSortItems } from '../utils/sortItems.js';
 
 const router = Router();
 
@@ -16,11 +17,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 });
 
 router.put('/sort', requireAuth, async (req: Request, res: Response) => {
-  const { items } = req.body as { items: { id: string; sortOrder: number }[] };
-
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new ValidationError('Items array is required');
-  }
+  const items = parseSortItems(req.body);
 
   const operations = items.map(({ id, sortOrder }) => ({
     updateOne: {

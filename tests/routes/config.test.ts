@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { createApp } from '../../src/app.js';
@@ -112,6 +112,60 @@ describe('Config Routes', () => {
 
       const count = await GlobalConfig.countDocuments();
       expect(count).toBe(1);
+    });
+  });
+
+  describe('partial patches update fields rather than replacing subdocuments', () => {
+    beforeEach(async () => {
+      await GlobalConfig.create(validConfig);
+    });
+
+    it('applies a depth-2 patch without dropping its siblings', async () => {
+      const before = await request(app).get('/api/config');
+      const form = before.body.data.contactContent.form;
+      expect(form.fields.length).toBeGreaterThan(0);
+
+      const res = await request(app)
+        .put('/api/config')
+        .set('Cookie', authCookie())
+        .send({ contactContent: { form: { submitLabel: 'CHANGED' } } });
+
+      expect(res.status).toBe(200);
+
+      const after = await request(app).get('/api/config');
+      const patched = after.body.data.contactContent.form;
+      expect(patched.submitLabel).toBe('CHANGED');
+      // Flattening only one level replaced `form` whole, which lost these and
+      // failed validation because `disclaimer` is required.
+      expect(patched.fields.length).toBe(form.fields.length);
+      expect(patched.disclaimer).toBe(form.disclaimer);
+    });
+
+    it('leaves a branch untouched when given an empty object', async () => {
+      const before = await request(app).get('/api/config');
+
+      const res = await request(app)
+        .put('/api/config')
+        .set('Cookie', authCookie())
+        .send({ siteConfig: {} });
+
+      expect(res.status).toBe(200);
+
+      const after = await request(app).get('/api/config');
+      expect(after.body.data.siteConfig).toEqual(before.body.data.siteConfig);
+    });
+
+    it('replaces an array whole rather than merging it', async () => {
+      const res = await request(app)
+        .put('/api/config')
+        .set('Cookie', authCookie())
+        .send({ nav: [{ id: 'home', label: 'Only', icon: 'House' }] });
+
+      expect(res.status).toBe(200);
+
+      const after = await request(app).get('/api/config');
+      expect(after.body.data.nav).toHaveLength(1);
+      expect(after.body.data.nav[0].label).toBe('Only');
     });
   });
 });
