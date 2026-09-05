@@ -12,7 +12,11 @@ router.get('/', async (_req: Request, res: Response) => {
     throw new NotFoundError('GlobalConfig');
   }
 
-  res.json({ success: true, data: config });
+  res.json({
+    success: true,
+    // Same reasoning as the portfolio route: always describe the full shape.
+    data: { ...config.toObject(), navLinks: config.navLinks ?? [] },
+  });
 });
 
 /**

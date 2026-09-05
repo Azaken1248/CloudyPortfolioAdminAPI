@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { GlobalConfig, Artwork, CommissionTier, FaqItem, TosSection } from '../../src/models/index.js';
@@ -73,6 +73,26 @@ describe('Portfolio Routes', () => {
     it('applies to HEAD as well — CDNs and uptime checks use it', async () => {
       const res = await request(app).head('/api/portfolio');
       expect(res.headers['cache-control']).toMatch(/public/);
+    });
+  });
+
+  describe('fields added after a document was written', () => {
+    beforeEach(async () => {
+      await GlobalConfig.create(minConfig);
+    });
+
+    it('returns navLinks as an empty array, not absent', async () => {
+      // Simulates a config saved before header links existed. `.lean()` skips
+      // mongoose defaults, so an omitted field used to vanish from the response
+      // — which made the admin believe the server already held its default and
+      // silently skip publishing the setting forever.
+      await GlobalConfig.collection.updateOne({}, { $unset: { navLinks: '' } });
+
+      const res = await request(app).get('/api/portfolio');
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.navLinks).toBeDefined();
+      expect(res.body.data.navLinks).toEqual([]);
     });
   });
 });

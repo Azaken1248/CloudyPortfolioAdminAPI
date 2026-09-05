@@ -4,7 +4,7 @@ import { GlobalConfig } from '../../src/models/index.js';
 import { MAX_NAV_LINKS } from '../../src/models/GlobalConfig.js';
 
 /** Minimal valid config, extended per test. */
-function baseConfig(navLinks: unknown[]) {
+function baseConfig(navLinks: unknown[]): Record<string, unknown> {
   return {
     siteConfig: { siteName: 'S', siteSubtitle: 's', pageTitle: 'p', metaDescription: 'm', logoIcon: 'Cloud' },
     heroContent: {
@@ -30,24 +30,24 @@ describe('navLinks', () => {
   it('defaults to an empty list when omitted', async () => {
     const cfg = baseConfig([]) as Record<string, unknown>;
     delete cfg.navLinks;
-    const saved = await GlobalConfig.create(cfg);
+    const saved = await GlobalConfig.create(cfg as never);
     expect(saved.navLinks).toEqual([]);
   });
 
   it(`accepts up to ${MAX_NAV_LINKS} links`, async () => {
     const links = Array.from({ length: MAX_NAV_LINKS }, (_, i) => link(i));
-    const saved = await GlobalConfig.create(baseConfig(links));
+    const saved = await GlobalConfig.create(baseConfig(links) as never);
     expect(saved.navLinks).toHaveLength(MAX_NAV_LINKS);
   });
 
   it(`rejects more than ${MAX_NAV_LINKS}`, async () => {
     const links = Array.from({ length: MAX_NAV_LINKS + 1 }, (_, i) => link(i));
-    await expect(GlobalConfig.create(baseConfig(links))).rejects.toThrow(/more than/i);
+    await expect(GlobalConfig.create(baseConfig(links) as never)).rejects.toThrow(/more than/i);
   });
 
   it('requires label, url and icon on each link', async () => {
     await expect(
-      GlobalConfig.create(baseConfig([{ label: 'only a label' }])),
+      GlobalConfig.create(baseConfig([{ label: 'only a label' }]) as never),
     ).rejects.toThrow(/required/i);
   });
 });

@@ -17,8 +17,26 @@ router.get('/', async (_req: Request, res: Response) => {
     throw new NotFoundError('GlobalConfig');
   }
 
+  /**
+   * `.lean()` returns the raw document, so mongoose schema defaults are not
+   * applied — a field added after a document was written is simply absent from
+   * the response rather than coming back as its default.
+   *
+   * That is not a cosmetic difference. The admin merges its own defaults into
+   * whatever this endpoint returns and calls the result "live state", so an
+   * omitted field made the editor believe the server already held its default.
+   * The diff then found nothing to publish, and the setting could never be
+   * saved: the editor showed links the site did not have, and publishing was a
+   * no-op.
+   *
+   * Fields with a schema default are filled explicitly here so the response
+   * always describes the full shape.
+   */
   const portfolio = {
     ...config,
+    navLinks: config.navLinks ?? [],
+    nav: config.nav ?? [],
+    socials: config.socials ?? [],
     artworks,
     commissionTiers,
     faqItems,
