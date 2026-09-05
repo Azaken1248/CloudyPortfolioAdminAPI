@@ -49,4 +49,16 @@ describe('Portfolio Routes', () => {
     expect(r.body.data.faqItems).toHaveLength(0);
     expect(r.body.data.tosSections).toHaveLength(0);
   });
+
+  describe('caching headers', () => {
+    it('marks GET responses cacheable', async () => {
+      const res = await request(app).get('/api/portfolio');
+      expect(res.headers['cache-control']).toMatch(/public/);
+    });
+
+    it('marks HEAD responses cacheable too — CDNs and uptime checks use HEAD', async () => {
+      const res = await request(app).head('/api/portfolio');
+      expect(res.headers['cache-control']).toMatch(/public/);
+    });
+  });
 });

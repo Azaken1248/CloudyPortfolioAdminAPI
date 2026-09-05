@@ -186,7 +186,10 @@ export function createApp(): Application {
    * visitor waiting on the origin.
    */
   const publicCache: RequestHandler = (req, res, next) => {
-    if (req.method === 'GET') {
+    // HEAD is cacheable on the same terms as GET — it is what CDNs and uptime
+    // checks use to revalidate — so gating on GET alone left those responses
+    // uncacheable.
+    if (req.method === 'GET' || req.method === 'HEAD') {
       res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
     next();
