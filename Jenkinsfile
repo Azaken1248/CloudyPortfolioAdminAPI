@@ -57,7 +57,9 @@ pipeline {
                 branch 'main'
             }
             steps {
-                sh 'sudo -u aza PM2_HOME=/home/aza/.pm2 pm2 restart cloudy-api'
+                // Process name must match `pm2 list`. This said `cloudy-api`,
+                // which does not exist, so the stage failed on every run.
+                sh 'sudo -u aza PM2_HOME=/home/aza/.pm2 pm2 restart cloudy-admin-api'
             }
         }
 
