@@ -51,12 +51,26 @@ describe('Portfolio Routes', () => {
   });
 
   describe('caching headers', () => {
-    it('marks GET responses cacheable', async () => {
+    it('allows caching but requires revalidation', async () => {
       const res = await request(app).get('/api/portfolio');
       expect(res.headers['cache-control']).toMatch(/public/);
+      expect(res.headers['cache-control']).toMatch(/no-cache/);
     });
 
-    it('marks HEAD responses cacheable too — CDNs and uptime checks use HEAD', async () => {
+    it('never serves a stale window — a publish must be visible immediately', async () => {
+      const res = await request(app).get('/api/portfolio');
+      // max-age or stale-while-revalidate here means the admin re-reads its own
+      // write and gets the pre-publish copy back, which looks like a failed publish.
+      expect(res.headers['cache-control']).not.toMatch(/max-age=[1-9]/);
+      expect(res.headers['cache-control']).not.toMatch(/stale-while-revalidate/);
+    });
+
+    it('carries an ETag so revalidation is a cheap 304', async () => {
+      const res = await request(app).get('/api/portfolio');
+      expect(res.headers.etag).toBeDefined();
+    });
+
+    it('applies to HEAD as well — CDNs and uptime checks use it', async () => {
       const res = await request(app).head('/api/portfolio');
       expect(res.headers['cache-control']).toMatch(/public/);
     });

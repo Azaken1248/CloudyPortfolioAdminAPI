@@ -190,7 +190,18 @@ export function createApp(): Application {
     // checks use to revalidate — so gating on GET alone left those responses
     // uncacheable.
     if (req.method === 'GET' || req.method === 'HEAD') {
-      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      // `public, no-cache` = cacheable, but revalidate before every use.
+      //
+      // A max-age here meant a publish did not appear until the window expired:
+      // the admin re-reads this endpoint straight after writing, and both the
+      // browser and the Cloudflare edge served the pre-publish copy back.
+      // stale-while-revalidate made it worse by allowing stale content for
+      // minutes afterwards.
+      //
+      // Revalidation is cheap because the response already carries an ETag, so
+      // an unchanged payload costs a 304 with no body — nearly all of the
+      // bandwidth saving, and none of the staleness.
+      res.set('Cache-Control', 'public, no-cache');
     }
     next();
   };
