@@ -5,6 +5,13 @@ export type {
   DiscordUser,
 } from './auth.js';
 
+/** A quick-access link shown in the header, beside the contact call to action. */
+export interface INavLink {
+  label: string;
+  url: string;
+  icon: string;
+}
+
 export interface ISocialLink {
   platform: string;
   url: string;

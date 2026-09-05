@@ -9,6 +9,7 @@ import type {
   IFooterContent,
   INavItem,
   ISocialLink,
+  INavLink,
 } from '../types/index.js';
 
 export interface IGlobalConfigDocument extends Document {
@@ -21,6 +22,7 @@ export interface IGlobalConfigDocument extends Document {
   footerContent: IFooterContent;
   nav: INavItem[];
   socials: ISocialLink[];
+  navLinks: INavLink[];
   updatedAt: Date;
   createdAt: Date;
 }
@@ -70,6 +72,22 @@ const SocialLinkSchema = new Schema(
     url:      { type: String, required: true },
     label:    { type: String, required: true },
     icon:     { type: String, required: true },
+  },
+  { _id: false },
+);
+
+/**
+ * Header links live in a fixed-width row beside the contact button, so the list
+ * is capped rather than unbounded — past a handful they crowd the logo on
+ * tablet widths and wrap on phones.
+ */
+export const MAX_NAV_LINKS = 5;
+
+const NavLinkSchema = new Schema(
+  {
+    label: { type: String, required: true, trim: true, maxlength: [40, 'Label cannot exceed 40 characters'] },
+    url:   { type: String, required: true, trim: true },
+    icon:  { type: String, required: true, trim: true },
   },
   { _id: false },
 );
@@ -144,6 +162,15 @@ const GlobalConfigSchema = new Schema<IGlobalConfigDocument>(
 
     nav:     { type: [NavItemSchema], default: [] },
     socials: { type: [SocialLinkSchema], default: [] },
+
+    navLinks: {
+      type: [NavLinkSchema],
+      default: [],
+      validate: {
+        validator: (arr: unknown[]) => arr.length <= MAX_NAV_LINKS,
+        message: `Cannot have more than ${MAX_NAV_LINKS} header links`,
+      },
+    },
   },
   {
     timestamps: true,
